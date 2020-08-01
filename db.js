@@ -2,38 +2,33 @@ const pg = require('pg');
 const bcrypt = require('bcrypt');
 const Pool = pg.Pool;
 
+if (process.env.NODE_ENV === 'dev') {
+    require('dotenv').config();
+}
+
 const db_pool = new Pool({
-    user: 'admin',
-    password: 'admin',
-    host: 'localhost',
-    database: 'owlifier',
-    port: 5432,
+    user: process.env.DB_USER,
+    password: process.env.PASSWORD,
+    host: process.env.HOST,
+    database: process.env.DATABASE,
+    port: process.env.DB_PORT
 })
 
-const init = () => {
-    db_pool.query(`
+const init = async () => {
+    await db_pool.query(`
     CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
-        username VARCHAR(50),
-        password VARCHAR(30)
-    )`, (err, _res) => {
-        if (err) {
-            console.log(err.stack);
-        }
-    });
-    
-    db_pool.query(`
+        username TEXT UNIQUE,
+        password TEXT
+    )`);
+
+    await db_pool.query(`
     CREATE TABLE IF NOT EXISTS routing (
-        slug VARCHAR (50) PRIMARY KEY,
-        url VARCHAR (100),
-        id INTEGER,
+        slug TEXT PRIMARY KEY,
+        url TEXT,
+        id INTEGER REFERENCES users(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        CONSTRAINT fk_user FOREIGN KEY (id) REFERENCES users(id)
-    )`, (err, _res) => {
-        if (err) {
-            console.log(err.stack);
-        }
-    });
+    )`);
 }
 
 const insertNewRoute = (slug, url, id) => {
@@ -46,25 +41,63 @@ const insertNewRoute = (slug, url, id) => {
         if (err) {
             console.log(err.stack);
         } else {
-            console.log(`New Route {slug: ${slug}, url: ${url}}, id: ${id}`);
+            console.log(`New Route {slug: ${slug}, url: ${url}}, id: ${id}}`);
         }
     });
 }
 
-const registerUser = (username, password) => {
+const registerUser = async (username, password) => {
+    const { rows } = await db_pool.query('SELECT * FROM USERS WHERE username=$1', [username]);
+
+    if (rows.length !== 0) {
+        console.log(`Username '${username}' is taken`);
+        return { status: false, msg: 'Username taken' };
+    }
+
+    const salt_rounds = 10;
+    password_hash = await bcrypt.hash(password, salt_rounds);
     const query = {
         name: 'register-user',
-        text: 'SELECT * FROM users WHERE username=$1 AND password=$2',
-        values: [slug, url, id],
+        text: 'INSERT INTO users (username, password) VALUES ($1, $2)',
+        values: [username, password_hash],
     }
+
+    db_pool.query(query, (err, _res) => {
+        if (err) {
+            console.log(err.stack);
+        } else {
+            console.log(`New User {username: ${username}}`);
+        }
+    });
 }
 
-const getUser = (username, password) => {
+const getUserById = async (id) => {
+    const { rows } = await db_pool.query('SELECT * FROM USERS WHERE id=$1', [id]);
+    return rows[0] || null;
+}
+
+
+const authenticateUser = (username, password, done) => {
     const query = {
         name: 'get-user',
-        text: 'SELECT * FROM users WHERE username=$1 AND password=$2',
-        values: [slug, url, id],
+        text: 'SELECT * FROM users WHERE username=$1',
+        values: [username],
     }
+
+    db_pool.query(query, async (err, res) => {
+        if (err) {
+            console.log(err.stack);
+            return done(err);
+        }
+        console.log('       querying database');
+        const user = res.rows[0];
+        const valid = await bcrypt.compare(password, user.password);
+        if (valid) {
+            return done(null, user);
+        } else {
+            return done(null, false, { message: 'Incorrect password.' });
+        }
+    });
 }
 
-module.exports = {init, insertNewRoute};
+module.exports = { init, insertNewRoute, authenticateUser, getUserById, registerUser };

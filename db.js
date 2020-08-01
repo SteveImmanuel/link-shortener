@@ -51,7 +51,7 @@ const registerUser = async (username, password) => {
 
     if (rows.length !== 0) {
         console.log(`Username '${username}' is taken`);
-        return { status: false, msg: 'Username taken' };
+        return { success: false, msg: 'Username taken' };
     }
 
     const salt_rounds = 10;
@@ -62,18 +62,27 @@ const registerUser = async (username, password) => {
         values: [username, password_hash],
     }
 
-    db_pool.query(query, (err, _res) => {
-        if (err) {
-            console.log(err.stack);
-        } else {
-            console.log(`New User {username: ${username}}`);
-        }
-    });
+    try {
+        const result = await db_pool.query(query);
+        return { success: true, msg: '' };
+    } catch (e) {
+        return { success: false, msg: process.env.NODE_ENV === 'dev' ? e : 'Error adding user' };
+    }
 }
 
 const getUserById = async (id) => {
-    const { rows } = await db_pool.query('SELECT * FROM USERS WHERE id=$1', [id]);
+    const { rows } = await db_pool.query('SELECT * FROM users WHERE id=$1', [id]);
     return rows[0] || null;
+}
+
+const getUrlBySlug = async (slug) => {
+    const { rows } = await db_pool.query('SELECT url FROM routing WHERE slug=$1', [slug]);
+    return rows[0].url || null;
+}
+
+const isSlugExist = async (slug) => {
+    const { rows } = await db_pool.query('SELECT * FROM routing WHERE slug=$1', [slug]);
+    return rows.length !== 0;
 }
 
 
@@ -89,7 +98,11 @@ const authenticateUser = (username, password, done) => {
             console.log(err.stack);
             return done(err);
         }
-        console.log('       querying database');
+
+        if (res.rows.length === 0) {
+            return done(null, false, { message: 'Incorrect username.' });
+        }
+
         const user = res.rows[0];
         const valid = await bcrypt.compare(password, user.password);
         if (valid) {
@@ -100,4 +113,4 @@ const authenticateUser = (username, password, done) => {
     });
 }
 
-module.exports = { init, insertNewRoute, authenticateUser, getUserById, registerUser };
+module.exports = { init, insertNewRoute, authenticateUser, getUserById, registerUser, isSlugExist, getUrlBySlug };

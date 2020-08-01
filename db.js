@@ -2,17 +2,14 @@ const pg = require('pg');
 const bcrypt = require('bcrypt');
 const Pool = pg.Pool;
 
+let db_pool;
 if (process.env.NODE_ENV === 'dev') {
     require('dotenv').config();
+    db_pool = new Pool();
+} else {
+    const connectionString = process.env.DATABASE_URL;
+    db_pool = new Pool({ connectionString });
 }
-
-const db_pool = new Pool({
-    user: process.env.DB_USER,
-    password: process.env.PASSWORD,
-    host: process.env.HOST,
-    database: process.env.DATABASE,
-    port: process.env.DB_PORT
-})
 
 const init = async () => {
     await db_pool.query(`

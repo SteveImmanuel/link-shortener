@@ -1,7 +1,8 @@
 const bcrypt = require('bcrypt');
+const { isNull } = require('util');
 const mongoose = require('mongoose');
-const UserModel = require('./models/user');
 const RouteModel = require('./models/route');
+const UserModel = require('./models/user');
 
 // configuring environment
 let host, database, port;
@@ -16,7 +17,7 @@ if (process.env.NODE_ENV === 'dev') {
 }
 
 // connecting to database
-mongoose.connect(`mongodb://${host}:${port}/${database}`, { useNewUrlParser: true });
+mongoose.connect(`mongodb://${host}:${port}/${database}`, { useNewUrlParser: true, useUnifiedTopology: true });
 const db = mongoose.connection;
 
 db.on('error', console.error.bind(console, 'connection error:'));
@@ -25,14 +26,24 @@ db.once('open', () => {
 });
 
 // define all functions, caller responsibles for error handling
-const getUserById = async (id) => {
-    const user = await UserModel.findById(id).populate('routes').exec();
+const getUserById = async (user_id) => {
+    const user = await UserModel.findById(user_id).populate('routes').exec();
+    delete user.password;
     return user || null;
 }
 
 const getUrlBySlug = async (slug) => {
     const route = await RouteModel.findOne({ slug }).exec();
     return route || null;
+}
+
+const getUrlByUserId = async (user_id) => {
+    const user = await getUserById(user_id);
+    if (isNull(user)) {
+        return null;
+    } else {
+        return user.routes;
+    }
 }
 
 const insertNewRoute = async (slug, url, user_id) => {
@@ -59,11 +70,12 @@ const registerUser = async (alias, password) => {
 }
 
 const authenticateUser = (alias, password, done) => {
-    UserModel.findOne({ alias }, async (err, user) => {
+    UserModel.findOne({ alias }).populate('routes').exec(async (err, user) => {
         if (err) {
             console.log(err.stack);
             return done(err);
         }
+
 
         if (!user) {
             return done(null, false, { message: 'Incorrect alias/password' });
@@ -79,5 +91,5 @@ const authenticateUser = (alias, password, done) => {
     });
 }
 
-module.exports = { insertNewRoute, authenticateUser, getUserById, registerUser, getUrlBySlug };
+module.exports = { insertNewRoute, authenticateUser, getUserById, registerUser, getUrlBySlug, getUrlByUserId };
 

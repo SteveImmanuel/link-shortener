@@ -27,7 +27,7 @@ app.use(flash());
 app.use('/', express.static(path.join(__dirname, '../client/public')));
 
 // configure passport
-passport.use(new LocalStrategy(db.authenticateUser));
+passport.use(new LocalStrategy({ usernameField: 'alias', passwordField: 'password' }, db.authenticateUser));
 
 passport.serializeUser((user, done) => {
     done(null, user._id);
@@ -41,7 +41,7 @@ passport.deserializeUser(async (id, done) => {
 // create custom middleware for redirect
 const requiresLogin = (req, res, next) => {
     if (req.user === undefined) {
-        res.redirect('/');
+        res.sendStatus(401);
     } else {
         next();
     }
@@ -65,16 +65,23 @@ app.post('/register', async (req, res) => {
     }
 })
 
-app.get('/login', (req, res) => {
-    console.log(req.flash('error'));
-    res.sendStatus(200);
+app.post('/login', passport.authenticate('local'), (req, res) => {
+    if (req.user) {
+        res.send(JSON.stringify(req.user));
+    }else{
+        res.status(400).send('Wrong credentials');
+    }
 })
-
-app.post('/login', passport.authenticate('local', { successRedirect: '/', failureRedirect: '/login', failureFlash: true }))
 
 app.get('/logout', (req, res) => {
     req.logout();
     res.sendStatus(200);
+})
+
+app.get('/url', requiresLogin, async (req, res) => {
+    const user_id = req.user._id;
+    const routes = await db.getUrlByUserId(user_id);
+    res.send(JSON.stringify(routes));
 })
 
 app.post('/url', requiresLogin, async (req, res) => {
@@ -106,10 +113,6 @@ app.get('/:slug', async (req, res) => {
     } else {
         res.redirect(url.url);
     }
-})
-
-app.get('/*', (req, res) => {
-    res.sendStatus(404);
 })
 
 const port = process.env.PORT || 1234;

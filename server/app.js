@@ -8,11 +8,7 @@ const LocalStrategy = require('passport-local').Strategy;
 const morgan = require('morgan');
 const flash = require('connect-flash');
 const db = require('./db');
-const { schema } = require('./validate');
 const { isNull } = require('util');
-
-// initialize database
-db.init();
 
 // initialize and configure app
 const app = express();
@@ -28,13 +24,13 @@ app.use(morgan('dev'));
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
-app.use('/', express.static(path.join(__dirname, 'public')));
+app.use('/', express.static(path.join(__dirname, '../client/public')));
 
 // configure passport
 passport.use(new LocalStrategy(db.authenticateUser));
 
 passport.serializeUser((user, done) => {
-    done(null, user.id);
+    done(null, user._id);
 });
 
 passport.deserializeUser(async (id, done) => {
@@ -53,14 +49,19 @@ const requiresLogin = (req, res, next) => {
 
 // define routes
 app.post('/register', async (req, res) => {
-    const username = req.body.username;
+    const alias = req.body.alias;
     const password = req.body.password;
-    const obj = await db.registerUser(username, password);
-    
-    if (obj.success) {
-        res.sendStatus(200);
-    } else {
-        res.status(400).send(obj.msg);
+
+    try {
+        const obj = await db.registerUser(alias, password);
+        if (obj.success) {
+            res.sendStatus(200);
+        } else {
+            res.status(400).send(obj.msg);
+        }
+    } catch (e) {
+        console.log(e.stack);
+        res.sendStatus(500);
     }
 })
 
@@ -79,13 +80,14 @@ app.get('/logout', (req, res) => {
 app.post('/url', requiresLogin, async (req, res) => {
     const url = req.body.url;
     const slug = req.body.slug;
-    const user_id = req.user.id;
+    const user_id = req.user._id;
 
-    const valid = await schema.isValid({ url, slug });
+    // TODO: change validation
+    const valid = true;
     if (valid) {
-        const exist = await db.isSlugExist(slug);
-        if (!exist) {
-            db.insertNewRoute(slug, url, user_id);
+        const exist = await db.getUrlBySlug(slug);
+        if (isNull(exist)) {
+            await db.insertNewRoute(slug, url, user_id);
             res.send(JSON.stringify(url, slug));
         } else {
             res.status(400).send('Slug already used');
@@ -102,7 +104,7 @@ app.get('/:slug', async (req, res) => {
     if (isNull(url)) {
         res.sendStatus(404);
     } else {
-        res.redirect(url);
+        res.redirect(url.url);
     }
 })
 

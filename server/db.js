@@ -26,27 +26,25 @@ db.once('open', () => {
 
 // define all functions, caller responsibles for error handling
 const getUserById = async (id) => {
-    const user = await UserModel.findById(user_id).populate('routes').exec();
+    const user = await UserModel.findById(id).populate('routes').exec();
     return user || null;
 }
 
 const getUrlBySlug = async (slug) => {
-    const route = await RouteModel.find({ slug }).exec();
+    const route = await RouteModel.findOne({ slug }).exec();
     return route || null;
 }
 
 const insertNewRoute = async (slug, url, user_id) => {
-    const user = getUserById(user_id);
+    const user = await getUserById(user_id);
     const new_route = new RouteModel({ url, slug });
     await new_route.save();
-    console.log(user.routes);
     user.routes.push(new_route._id);
     await user.save();
 }
 
 const registerUser = async (alias, password) => {
     const other_user = await UserModel.find({ alias }).exec();
-    console.log(other_user);
 
     if (other_user.length !== 0) {
         console.log(`Alias '${alias}' is taken`);
@@ -55,9 +53,6 @@ const registerUser = async (alias, password) => {
 
     const salt_rounds = 10;
     password_hash = await bcrypt.hash(password, salt_rounds);
-    console.log(alias);
-    console.log(password);
-    console.log(password_hash);
     const new_user = new UserModel({ alias, password: password_hash });
     await new_user.save();
     return { success: true, msg: `Registered user ${alias}` };

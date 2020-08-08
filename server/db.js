@@ -1,113 +1,88 @@
-const pg = require('pg');
 const bcrypt = require('bcrypt');
-const Pool = pg.Pool;
+const mongoose = require('mongoose');
+const UserModel = require('./models/user');
+const RouteModel = require('./models/route');
 
-let db_pool;
+// configuring environment
+let host, database, port;
 if (process.env.NODE_ENV === 'dev') {
     require('dotenv').config();
-    db_pool = new Pool();
+    host = process.env.DBHOST;
+    database = process.env.DBDATABASE;
+    port = process.env.DBPORT;
 } else {
     const connectionString = process.env.DATABASE_URL;
     db_pool = new Pool({ connectionString });
 }
 
-const init = async () => {
-    await db_pool.query(`
-    CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        username TEXT UNIQUE,
-        password TEXT
-    )`);
+// connecting to database
+mongoose.connect(`mongodb://${host}:${port}/${database}`, { useNewUrlParser: true });
+const db = mongoose.connection;
 
-    await db_pool.query(`
-    CREATE TABLE IF NOT EXISTS routing (
-        slug TEXT PRIMARY KEY,
-        url TEXT,
-        id INTEGER REFERENCES users(id),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`);
+db.on('error', console.error.bind(console, 'connection error:'));
+db.once('open', () => {
+    console.log('DB successfuly connected');
+});
+
+// define all functions, caller responsibles for error handling
+const getUserById = async (id) => {
+    const user = await UserModel.findById(user_id).populate('routes').exec();
+    return user || null;
 }
 
-const insertNewRoute = (slug, url, id) => {
-    const query = {
-        name: 'insert-new-route',
-        text: 'INSERT INTO routing (slug, url, id) VALUES ($1, $2, $3)',
-        values: [slug, url, id],
-    }
-    db_pool.query(query, (err, _res) => {
-        if (err) {
-            console.log(err.stack);
-        } else {
-            console.log(`New Route {slug: ${slug}, url: ${url}}, id: ${id}}`);
-        }
-    });
+const getUrlBySlug = async (slug) => {
+    const route = await RouteModel.find({ slug }).exec();
+    return route || null;
 }
 
-const registerUser = async (username, password) => {
-    const { rows } = await db_pool.query('SELECT * FROM USERS WHERE username=$1', [username]);
+const insertNewRoute = async (slug, url, user_id) => {
+    const user = getUserById(user_id);
+    const new_route = new RouteModel({ url, slug });
+    await new_route.save();
+    console.log(user.routes);
+    user.routes.push(new_route._id);
+    await user.save();
+}
 
-    if (rows.length !== 0) {
-        console.log(`Username '${username}' is taken`);
-        return { success: false, msg: 'Username taken' };
+const registerUser = async (alias, password) => {
+    const other_user = await UserModel.find({ alias }).exec();
+    console.log(other_user);
+
+    if (other_user.length !== 0) {
+        console.log(`Alias '${alias}' is taken`);
+        return { success: false, msg: 'Alias taken' };
     }
 
     const salt_rounds = 10;
     password_hash = await bcrypt.hash(password, salt_rounds);
-    const query = {
-        name: 'register-user',
-        text: 'INSERT INTO users (username, password) VALUES ($1, $2)',
-        values: [username, password_hash],
-    }
-
-    try {
-        const result = await db_pool.query(query);
-        return { success: true, msg: '' };
-    } catch (e) {
-        return { success: false, msg: process.env.NODE_ENV === 'dev' ? e : 'Error adding user' };
-    }
+    console.log(alias);
+    console.log(password);
+    console.log(password_hash);
+    const new_user = new UserModel({ alias, password: password_hash });
+    await new_user.save();
+    return { success: true, msg: `Registered user ${alias}` };
 }
 
-const getUserById = async (id) => {
-    const { rows } = await db_pool.query('SELECT * FROM users WHERE id=$1', [id]);
-    return rows[0] || null;
-}
-
-const getUrlBySlug = async (slug) => {
-    const { rows } = await db_pool.query('SELECT url FROM routing WHERE slug=$1', [slug]);
-    return rows[0].url || null;
-}
-
-const isSlugExist = async (slug) => {
-    const { rows } = await db_pool.query('SELECT * FROM routing WHERE slug=$1', [slug]);
-    return rows.length !== 0;
-}
-
-
-const authenticateUser = (username, password, done) => {
-    const query = {
-        name: 'get-user',
-        text: 'SELECT * FROM users WHERE username=$1',
-        values: [username],
-    }
-
-    db_pool.query(query, async (err, res) => {
+const authenticateUser = (alias, password, done) => {
+    UserModel.findOne({ alias }, async (err, user) => {
         if (err) {
             console.log(err.stack);
             return done(err);
         }
 
-        if (res.rows.length === 0) {
-            return done(null, false, { message: 'Incorrect username.' });
+        if (!user) {
+            return done(null, false, { message: 'Incorrect alias/password' });
         }
 
-        const user = res.rows[0];
         const valid = await bcrypt.compare(password, user.password);
         if (valid) {
             return done(null, user);
         } else {
-            return done(null, false, { message: 'Incorrect password.' });
+            return done(null, false, { message: 'Incorrect alias/password' });
         }
+
     });
 }
 
-module.exports = { init, insertNewRoute, authenticateUser, getUserById, registerUser, isSlugExist, getUrlBySlug };
+module.exports = { insertNewRoute, authenticateUser, getUserById, registerUser, getUrlBySlug };
+

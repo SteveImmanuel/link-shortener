@@ -1,9 +1,12 @@
 <template>
-  <form @submit.prevent="handleSubmit">
-    <input v-model="alias" type="text" placeholder="alias" />
-    <input v-model="password" type="text" placeholder="password" />
-    <button type="submit">{{ btn_text }}</button>
-  </form>
+  <div>
+    <form @submit.prevent="handleSubmit">
+      <input v-model="alias" type="text" placeholder="alias" />
+      <input v-model="password" type="text" placeholder="password" />
+      <button type="submit">{{ btn_text }}</button>
+    </form>
+    <button @click="refreshRoute">test refresh</button>
+  </div>
 </template>
 
 <script>
@@ -20,7 +23,7 @@ export default {
     };
   },
   methods: {
-    ...mapActions(["login"]),
+    ...mapActions(["login", "refreshRoute"]),
     handleSubmit() {
       this.login({ alias: this.alias, password: this.password });
     },

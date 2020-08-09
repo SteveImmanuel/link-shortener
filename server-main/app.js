@@ -1,6 +1,5 @@
 const express = require('express');
 const helmet = require('helmet');
-const path = require('path');
 const session = require('express-session');
 const cors = require('cors');
 const passport = require('passport');

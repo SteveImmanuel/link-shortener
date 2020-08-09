@@ -1,0 +1,36 @@
+{
+  "name": "link-shortener",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "start": "NODE_ENV=dev node app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SteveImmanuel/link-shortener.git"
+  },
+  "author": "SteveImmanuel",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/SteveImmanuel/link-shortener/issues"
+  },
+  "homepage": "https://github.com/SteveImmanuel/link-shortener#readme",
+  "dependencies": {
+    "bcrypt": "^5.0.0",
+    "connect-flash": "^0.1.1",
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "express-session": "^1.17.1",
+    "helmet": "^3.23.3",
+    "mongoose": "^5.9.28",
+    "morgan": "^1.10.0",
+    "nanoid": "^3.1.12",
+    "passport": "^0.4.1",
+    "passport-local": "^1.0.0",
+    "yup": "^0.29.3"
+  },
+  "devDependencies": {
+    "dotenv": "^8.2.0"
+  }
+}

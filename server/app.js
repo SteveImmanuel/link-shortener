@@ -7,115 +7,141 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const morgan = require('morgan');
 const flash = require('connect-flash');
+
 const db = require('./db');
 const { isNull } = require('util');
+const config = require('./config');
 
 // initialize and configure app
 const app = express();
 app.use(helmet());
-app.use(cors());
 app.use(session({
-    secret: 'wowthisisacustomapp',
-    resave: false,
-    saveUninitialized: false
+
+  secret: 'wowthisisacustomapp',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    // secure: true,
+    sameSite: "none",
+    path: '/',
+    httpOnly: true
+  },
+
 }))
 app.use(express.json());
 app.use(morgan('dev'));
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
-app.use('/', express.static(path.join(__dirname, '../client/public')));
+
+const corsOptions = {
+  origin: config.client_url,
+  optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+  credentials: true
+}
+app.use(cors(corsOptions));
 
 // configure passport
 passport.use(new LocalStrategy({ usernameField: 'alias', passwordField: 'password' }, db.authenticateUser));
 
 passport.serializeUser((user, done) => {
-    done(null, user._id);
+  done(null, user._id);
 });
 
 passport.deserializeUser(async (id, done) => {
-    user = await db.getUserById(id);
-    done(null, user);
+  user = await db.getUserById(id);
+  done(null, user);
 });
 
 // create custom middleware for redirect
 const requiresLogin = (req, res, next) => {
-    if (req.user === undefined) {
-        res.sendStatus(401);
-    } else {
-        next();
-    }
+  if (req.user === undefined) {
+    res.sendStatus(401);
+  } else {
+    next();
+  }
+}
+
+// create custom error handler
+errorHandler = (err, req, res, next) => {
+  if (err.status) {
+    res.status(err.status);
+  }
+  res.json({
+    msg: err.message,
+    stack: process.env.NODE_ENV === 'production' ? 'Sorry' : err.stack
+  })
 }
 
 // define routes
-app.post('/register', async (req, res) => {
-    const alias = req.body.alias;
-    const password = req.body.password;
+app.post('/register', async (req, res, next) => {
+  const alias = req.body.alias;
+  const password = req.body.password;
 
-    try {
-        const obj = await db.registerUser(alias, password);
-        if (obj.success) {
-            res.sendStatus(200);
-        } else {
-            res.status(400).send(obj.msg);
-        }
-    } catch (e) {
-        console.log(e.stack);
-        res.sendStatus(500);
-    }
-})
-
-app.post('/login', passport.authenticate('local'), (req, res) => {
-    if (req.user) {
-        res.send(JSON.stringify(req.user));
-    }else{
-        res.status(400).send('Wrong credentials');
-    }
-})
-
-app.get('/logout', (req, res) => {
-    req.logout();
+  const obj = await db.registerUser(alias, password);
+  if (obj.success) {
     res.sendStatus(200);
+  } else {
+    res.status(400).send(obj.msg);
+  }
 })
 
-app.get('/url', requiresLogin, async (req, res) => {
-    const user_id = req.user._id;
-    const routes = await db.getUrlByUserId(user_id);
-    res.send(JSON.stringify(routes));
+app.post('/login', passport.authenticate('local'), (req, res, next) => {
+  if (req.user) {
+    res.send(JSON.stringify(req.user));
+  } else {
+    res.status(400).send('Wrong credentials');
+  }
 })
 
-app.post('/url', requiresLogin, async (req, res) => {
-    const url = req.body.url;
-    const slug = req.body.slug;
-    const user_id = req.user._id;
+app.post('/logout', (req, res) => {
+  req.logout();
+  res.sendStatus(200);
+})
 
-    // TODO: change validation
-    const valid = true;
-    if (valid) {
-        const exist = await db.getUrlBySlug(slug);
-        if (isNull(exist)) {
-            await db.insertNewRoute(slug, url, user_id);
-            res.send(JSON.stringify(url, slug));
-        } else {
-            res.status(400).send('Slug already used');
-        }
+app.post('/slug', requiresLogin, async (req, res, next) => {
+  const user_id = req.user._id;
+  const routes = await db.getUrlByUserId(user_id);
+  res.send(JSON.stringify(routes));
+})
+
+app.post('/url', requiresLogin, async (req, res, next) => {
+  const url = req.body.url;
+  const slug = req.body.slug;
+  const user_id = req.user._id;
+
+  // TODO: change validation
+  const valid = true;
+  if (valid) {
+    const exist = await db.getUrlBySlug(slug);
+    if (isNull(exist)) {
+      await db.insertNewRoute(slug, url, user_id);
+      res.send(JSON.stringify(url, slug));
     } else {
-        res.status(400).send('Invalid parameters');
+      res.status(400).send('Slug already used');
     }
+  } else {
+    res.status(400).send('Invalid parameters');
+  }
 })
 
-app.get('/:slug', async (req, res) => {
-    const slug = req.params.slug;
-    const url = await db.getUrlBySlug(slug);
+app.get('/:slug', async (req, res, next) => {
+  const slug = req.params.slug;
+  const url = await db.getUrlBySlug(slug);
 
-    if (isNull(url)) {
-        res.sendStatus(404);
-    } else {
-        res.redirect(url.url);
-    }
+  if (isNull(url)) {
+    res.sendStatus(404);
+  } else {
+    res.redirect(url.url);
+  }
 })
 
+app.get('*', (req, res) => {
+  res.sendStatus(404);
+})
+
+app.use(errorHandler)
 const port = process.env.PORT || 1234;
 app.listen(port, () => {
-    console.log(`App listening in port ${port}`);
+  console.log(`App listening in port ${port}`);
 })

@@ -118,21 +118,6 @@ app.post('/url', requiresLogin, async (req, res, next) => {
   }
 })
 
-app.get('/:slug', async (req, res, next) => {
-  const slug = req.params.slug;
-  const url = await db.getUrlBySlug(slug);
-
-  if (isNull(url)) {
-    res.sendStatus(404);
-  } else {
-    res.redirect(url.url);
-  }
-})
-
-app.get('*', (req, res) => {
-  res.sendStatus(404);
-})
-
 app.use(errorHandler)
 const port = process.env.PORT || 1234;
 app.listen(port, () => {

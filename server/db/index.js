@@ -20,7 +20,9 @@ if (process.env.NODE_ENV === 'dev') {
 mongoose.connect(`mongodb://${host}:${port}/${database}`, { useNewUrlParser: true, useUnifiedTopology: true });
 const db = mongoose.connection;
 
-db.on('error', console.error.bind(console, 'connection error:'));
+db.on('error', () =>{
+  console.log('DB connection error');
+});
 db.once('open', () => {
     console.log('DB successfuly connected');
 });

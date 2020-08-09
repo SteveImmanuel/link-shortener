@@ -4,7 +4,8 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "start": "NODE_ENV=dev node app.js"
+    "main": "NODE_ENV=dev node server-main.js",
+    "redirect": "NODE_ENV=dev node server-redirect.js"
   },
   "repository": {
     "type": "git",

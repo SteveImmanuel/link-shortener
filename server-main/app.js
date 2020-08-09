@@ -27,7 +27,7 @@ app.use(morgan('dev'));
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
-app.use(express.static('../client/dist'));
+app.use(express.static('./views/dist'));
 
 const corsOptions = {
   optionsSuccessStatus: 200,

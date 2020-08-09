@@ -7,36 +7,30 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const morgan = require('morgan');
 const flash = require('connect-flash');
+const { isNull } = require('util');
 
 const db = require('./db');
-const { isNull } = require('util');
-const config = require('./config');
 
 // initialize and configure app
 const app = express();
 app.use(helmet());
 app.use(session({
-
   secret: 'wowthisisacustomapp',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    // secure: true,
-    sameSite: "none",
-    path: '/',
-    httpOnly: true
+    sameSite: "strict",
   },
-
 }))
 app.use(express.json());
 app.use(morgan('dev'));
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
+app.use(express.static('../client/dist'));
 
 const corsOptions = {
-  origin: config.client_url,
-  optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+  optionsSuccessStatus: 200,
   credentials: true
 }
 app.use(cors(corsOptions));

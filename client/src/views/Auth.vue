@@ -2,13 +2,12 @@
   <div>
     <div>Auth</div>
     <AuthForm :btn_text="btn_text" />
-    <button @click="Switch">Register</button>
+    <button @click="swap">Register</button>
   </div>
 </template>
 
 <script>
 import AuthForm from "@/components/AuthForm";
-import config from "@/config";
 
 export default {
   name: "Auth",
@@ -22,13 +21,13 @@ export default {
     };
   },
   methods: {
-    Switch() {
+    swap() {
       this.login({ alias: this.alias, password: this.password });
       this.is_registering = !this.is_registering;
       this.btn_text = this.is_registering ? "Register" : "Login";
     },
     async register() {
-      const request = await fetch(`${config.api_url}/register`, {
+      const request = await fetch('register', {
         method: "POST",
         headers: {
           Accept: "application/json",

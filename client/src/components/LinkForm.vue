@@ -8,7 +8,6 @@
 
 <script>
 import { mapActions } from "vuex";
-import config from "@/config";
 
 export default {
   data() {
@@ -20,7 +19,7 @@ export default {
   methods: {
     ...mapActions(["refreshRoute"]),
     async addRoute() {
-      const request = await fetch(`${config.api_url}/url`, {
+      const request = await fetch(`url`, {
         method: "POST",
         headers: {
           Accept: "application/json",

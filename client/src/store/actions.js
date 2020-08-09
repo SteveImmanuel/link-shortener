@@ -1,15 +1,13 @@
-import config from '@/config'
-
 export default {
   login: async ({ commit }, { alias, password }) => {
-    const request = await fetch(`${config.api_url}/login`, {
+    const request = await fetch('login', {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ alias, password }),
-      credentials: 'include'
+      credentials: 'same-origin'
     });
 
     if (request.status === 200) {
@@ -26,13 +24,13 @@ export default {
     }
   },
   refreshRoute: async ({ commit }) => {
-    const request = await fetch(`${config.api_url}/slug`, {
+    const request = await fetch('slug', {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       },
-      credentials: 'include'
+      credentials: 'same-origin'
     });
 
     if (request.status === 200) {
@@ -41,6 +39,20 @@ export default {
 
     } else {
       //TODO: handle fail refresh
+    }
+  },
+  logOut: async ({ commit }) => {
+    const request = await fetch("logout", {
+      method: "POST",
+      credentials: "same-origin",
+    });
+
+    if (request.status === 200) {
+      commit('resetState');
+      window.sessionStorage.clear();
+    }else{
+      //TODO: handle fail logout
+
     }
   }
 }

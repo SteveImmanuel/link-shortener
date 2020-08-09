@@ -10,6 +10,7 @@ const flash = require('connect-flash');
 const { isNull } = require('util');
 
 const db = require('./db');
+const { schema } = require('./validate');
 
 // initialize and configure app
 const app = express();
@@ -104,8 +105,7 @@ app.post('/url', requiresLogin, async (req, res, next) => {
   const slug = req.body.slug;
   const user_id = req.user._id;
 
-  // TODO: change validation
-  const valid = true;
+  const valid = await schema.isValid({ url, slug });
   if (valid) {
     const exist = await db.getUrlBySlug(slug);
     if (isNull(exist)) {
